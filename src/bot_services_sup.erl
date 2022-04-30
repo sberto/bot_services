@@ -33,7 +33,7 @@ init([]) ->
                  period => 1},
     ChildSpecs = [
                      #{id => bot, start => {pe4kin, launch_bot, [BotName, BotToken, #{receiver => true}]}},
-                     #{id => hello, start => {hello, start_link, [BotName]}}
+                     #{id => services_sup, start => {services_sup, start_link, [BotName]}, type => supervisor}
                  ],
     {ok, {SupFlags, ChildSpecs}}.
 
