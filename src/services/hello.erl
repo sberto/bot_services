@@ -9,14 +9,14 @@
 -module(hello).
 -author("stefano.bertolotto").
 
--behavior(bot_service).
+-behavior(service).
 
 %% API
 -export([start_link/1]).
 -export([message/3]).
 
 start_link(Name) ->
-    bot_service:start_link(?MODULE, Name).
+    service:start_link(?MODULE, Name).
 
 message(#{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}, <<"from">> := From, <<"entities">> := E} = Message}, BotName, _State) ->
     lager:warning("Entities: ~p", [E]),

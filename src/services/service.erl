@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 28. Apr 2022 19:35
 %%%-------------------------------------------------------------------
--module(bot_service).
+-module(service).
 -author("stefano.bertolotto").
 
 -behaviour(gen_server).
@@ -38,7 +38,7 @@
 -define(UPDATE, pe4kin_update).
 -define(SERVER, ?MODULE).
 
--record(bot_service_state, {name, mod, service_state = #{}}).
+-record(state, {name, mod, state = #{}}).
 
 %%%===================================================================
 %%% API
@@ -57,61 +57,61 @@ start_link(Mod, BotName) ->
 %% @private
 %% @doc Initializes the server
 -spec(init(Args :: list()) ->
-    {ok, State :: #bot_service_state{}} | {ok, State :: #bot_service_state{}, timeout() | hibernate} |
+    {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
 init([Mod, BotName]) ->
     pe4kin_receiver:subscribe(BotName, self()),
     pe4kin_receiver:start_http_poll(BotName, #{limit => 100, timeout => 60}),
     lager:notice("[~p] ~p init'd", [?MODULE, Mod]),
-    {ok, #bot_service_state{name = BotName, mod = Mod}}.
+    {ok, #state{name = BotName, mod = Mod}}.
 
 %% @private
 %% @doc Handling call messages
 -spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
-                  State :: #bot_service_state{}) ->
-                     {reply, Reply :: term(), NewState :: #bot_service_state{}} |
-                     {reply, Reply :: term(), NewState :: #bot_service_state{}, timeout() | hibernate} |
-                     {noreply, NewState :: #bot_service_state{}} |
-                     {noreply, NewState :: #bot_service_state{}, timeout() | hibernate} |
-                     {stop, Reason :: term(), Reply :: term(), NewState :: #bot_service_state{}} |
-                     {stop, Reason :: term(), NewState :: #bot_service_state{}}).
-handle_call(Request, From, State = #bot_service_state{name = Name}) ->
+                  State :: #state{}) ->
+                     {reply, Reply :: term(), NewState :: #state{}} |
+                     {reply, Reply :: term(), NewState :: #state{}, timeout() | hibernate} |
+                     {noreply, NewState :: #state{}} |
+                     {noreply, NewState :: #state{}, timeout() | hibernate} |
+                     {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
+                     {stop, Reason :: term(), NewState :: #state{}}).
+handle_call(Request, From, State = #state{name = Name}) ->
     io:format("Unhandled ~p req ~p from ~p, name ~p", [?FUNCTION_NAME, Request, From, Name]),
     {reply, ok, State}.
 
 %% @private
 %% @doc Handling cast messages
--spec(handle_cast(Request :: term(), State :: #bot_service_state{}) ->
-    {noreply, NewState :: #bot_service_state{}} |
-    {noreply, NewState :: #bot_service_state{}, timeout() | hibernate} |
-    {stop, Reason :: term(), NewState :: #bot_service_state{}}).
-handle_cast(Request, State = #bot_service_state{name = Name}) ->
+-spec(handle_cast(Request :: term(), State :: #state{}) ->
+    {noreply, NewState :: #state{}} |
+    {noreply, NewState :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: #state{}}).
+handle_cast(Request, State = #state{name = Name}) ->
     io:format("Unhandled ~p req: ~p, name ~p", [?FUNCTION_NAME, Request, Name]),
     {noreply, State}.
 
 %% @private
 %% @doc Handling all non call/cast messages
--spec(handle_info(Info :: timeout() | term(), State :: #bot_service_state{}) ->
-    {noreply, NewState :: #bot_service_state{}} |
-    {noreply, NewState :: #bot_service_state{}, timeout() | hibernate} |
-    {stop, Reason :: term(), NewState :: #bot_service_state{}}).
+-spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
+    {noreply, NewState :: #state{}} |
+    {noreply, NewState :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: #state{}}).
 handle_info({?UPDATE, BotName, Msg},
             State =
-                #bot_service_state{
+                #state{
                     name          = BotName,
                     mod           = Mod,
-                    service_state = ServiceState
+                    state = ServiceState
                 }) ->
     Type = pe4kin_types:update_type(Msg),
     Fun = Type,
     Args = [Msg, BotName, ServiceState],
     lager:info("[~p] ~p -> ~p:~p", [?MODULE, Type, Mod, Fun]),
     case maybe_apply(Mod, Fun, Args) of
-        {ok, NewServiceState} -> {noreply, State#bot_service_state{service_state = NewServiceState}};
+        {ok, NewServiceState} -> {noreply, State#state{state = NewServiceState}};
         ok -> {noreply, State};
         {error, not_exported} -> unhandled(Args)
     end;
-handle_info(Info, State = #bot_service_state{name = Name}) ->
+handle_info(Info, State = #state{name = Name}) ->
     io:format("Unhandled ~p req: ~p name ~p", [?FUNCTION_NAME, Info, Name]),
     {noreply, State}.
 
@@ -121,16 +121,16 @@ handle_info(Info, State = #bot_service_state{name = Name}) ->
 %% necessary cleaning up. When it returns, the gen_server terminates
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
-                State :: #bot_service_state{}) -> term()).
-terminate(_Reason, _State = #bot_service_state{}) ->
+                State :: #state{}) -> term()).
+terminate(_Reason, _State = #state{}) ->
     ok.
 
 %% @private
 %% @doc Convert process state when code is changed
--spec(code_change(OldVsn :: term() | {down, term()}, State :: #bot_service_state{},
+-spec(code_change(OldVsn :: term() | {down, term()}, State :: #state{},
                   Extra :: term()) ->
-                     {ok, NewState :: #bot_service_state{}} | {error, Reason :: term()}).
-code_change(_OldVsn, State = #bot_service_state{}, _Extra) ->
+                     {ok, NewState :: #state{}} | {error, Reason :: term()}).
+code_change(_OldVsn, State = #state{}, _Extra) ->
     {ok, State}.
 
 %%%===================================================================
