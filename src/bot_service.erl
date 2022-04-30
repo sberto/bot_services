@@ -26,7 +26,7 @@
 -callback pre_checkout_query(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback undefined(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 
--optional_callbacks([undefined/3]).
+-optional_callbacks([ message/3, edited_message/3, channel_post/3, edited_channel_post/3, inline_query/3, chosen_inline_result/3, callback_query/3, shipping_query/3, pre_checkout_query/3, undefined/3]).
 
 %% API
 -export([start_link/2]).
@@ -104,10 +104,12 @@ handle_info({?UPDATE, BotName, Msg},
                 }) ->
     Type = pe4kin_types:update_type(Msg),
     Fun = Type,
-    lager:notice("[~p] ~p -> ~p:~p", [?MODULE, Type, Mod, Fun]),
-    case Mod:Type(Msg, BotName, ServiceState) of
+    Args = [Msg, BotName, ServiceState],
+    lager:info("[~p] ~p -> ~p:~p", [?MODULE, Type, Mod, Fun]),
+    case maybe_apply(Mod, Fun, Args) of
         {ok, NewServiceState} -> {noreply, State#bot_service_state{service_state = NewServiceState}};
-        ok -> {noreply, State}
+        ok -> {noreply, State};
+        {error, not_exported} -> unhandled(Args)
     end;
 handle_info(Info, State = #bot_service_state{name = Name}) ->
     io:format("Unhandled ~p req: ~p name ~p", [?FUNCTION_NAME, Info, Name]),
@@ -135,3 +137,13 @@ code_change(_OldVsn, State = #bot_service_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+unhandled(Msg) ->
+    lager:info("Unhandled ~p ~p", [?FUNCTION_NAME, Msg]),
+    ok.
+
+maybe_apply(M, F, A) ->
+    IsExported = erlang:function_exported(M, F, length(A)),
+    case IsExported of
+        true -> apply(M, F, A);
+        false -> {error, not_exported}
+    end.
