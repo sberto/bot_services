@@ -11,11 +11,11 @@
 
 -behaviour(gen_server).
 -include("bot_types.hrl").
-
--define(CALLBACK_ARGS, Msg :: map(), Name :: bot_name(), ServiceState :: map()).
--define(CALLBACK_RES, ok | {ok, NewState :: map()}).
+-include("services.hrl").
 
 -callback message(?CALLBACK_ARGS) -> ?CALLBACK_RES.
+-callback command(command(), command_type(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
+-callback other_bot_command(command(), OtherBotName :: bot_name(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback edited_message(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback channel_post(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback edited_channel_post(?CALLBACK_ARGS) -> ?CALLBACK_RES.
@@ -26,7 +26,7 @@
 -callback pre_checkout_query(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback undefined(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 
--optional_callbacks([ message/3, edited_message/3, channel_post/3, edited_channel_post/3, inline_query/3, chosen_inline_result/3, callback_query/3, shipping_query/3, pre_checkout_query/3, undefined/3]).
+-optional_callbacks([message/3, command/5, other_bot_command/5, edited_message/3, channel_post/3, edited_channel_post/3, inline_query/3, chosen_inline_result/3, callback_query/3, shipping_query/3, pre_checkout_query/3, undefined/3]).
 
 %% API
 -export([start_link/2]).
@@ -98,14 +98,13 @@ handle_cast(Request, State = #state{name = Name}) ->
 handle_info({?UPDATE, BotName, Msg},
             State =
                 #state{
-                    name          = BotName,
-                    mod           = Mod,
+                    name  = BotName,
+                    mod   = Mod,
                     state = ServiceState
                 }) ->
-    Type = pe4kin_types:update_type(Msg),
-    Fun = Type,
-    Args = [Msg, BotName, ServiceState],
-    lager:info("[~p] ~p -> ~p:~p", [?MODULE, Type, Mod, Fun]),
+    {Fun, AdditionalArgs} = callback(BotName, Msg),
+    Args = AdditionalArgs ++ [Msg, BotName, ServiceState],
+    lager:info("[~p] -> ~p:~p", [?MODULE, Mod, Fun]),
     case maybe_apply(Mod, Fun, Args) of
         {ok, NewServiceState} -> {noreply, State#state{state = NewServiceState}};
         ok -> {noreply, State};
@@ -147,3 +146,12 @@ maybe_apply(M, F, A) ->
         true -> apply(M, F, A);
         false -> {error, not_exported}
     end.
+
+
+-spec callback(BotName :: bot_name(), Msg :: map()) -> {F :: atom(), AdditionalArgs :: list()}.
+callback(BotName, Msg = #{<<"message">> := #{<<"entities">> := _}}) -> command_callback(pe4kin_types:message_command(BotName, Msg));
+callback(_, Msg) -> {pe4kin_types:update_type(Msg), []}.
+
+command_callback({Cmd, BinBotName, true, _Command}) -> {command, [Cmd, tagged]}; % /cmd@this_bot
+command_callback({Cmd, OtherBotName, false, _Command}) -> {other_bot_command, [Cmd, OtherBotName]}; % /cmd@other_bot
+command_callback({Cmd, _BinBotName, true, _Command}) -> {command, [Cmd, direct]}. % /cmd

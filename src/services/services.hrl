@@ -4,10 +4,9 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 28. Apr 2022 19:39
+%%% Created : 30. Apr 2022 11:25
 %%%-------------------------------------------------------------------
 -author("stefano.bertolotto").
 
--type bot_name() :: binary().
--type command() :: binary().
--type command_type() :: tagged | direct.
+-define(CALLBACK_ARGS, Msg :: map(), Name :: bot_name(), ServiceState :: map()).
+-define(CALLBACK_RES, ok | {ok, NewState :: map()}).
