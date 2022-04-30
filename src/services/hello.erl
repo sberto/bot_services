@@ -31,6 +31,9 @@ start_link(Name) ->
 command(<<"/start">>, _, #{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}, <<"from">> := From}}, BotName, _State) ->
     send_hello(BotName, ChatId, From),
     ok;
+command(Cmd, _, #{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}}}, BotName, _State) ->
+    {ok, _} = pe4kin:send_message(BotName, #{chat_id => ChatId, text => <<Cmd/binary, " is not a valid command">>}),
+    ok;
 command(_Cmd, _CmdType, Msg, _Name, _State) -> unhandled(Msg).
 
 message(#{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}, <<"from">> := From}}, BotName, _State) ->

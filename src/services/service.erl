@@ -149,7 +149,7 @@ maybe_apply(M, F, A) ->
 
 
 -spec callback(BotName :: bot_name(), Msg :: map()) -> {F :: atom(), AdditionalArgs :: list()}.
-callback(BotName, Msg = #{<<"message">> := #{<<"entities">> := _}}) -> command_callback(pe4kin_types:message_command(BotName, Msg));
+callback(BotName, #{<<"message">> := #{<<"entities">> := _} = Msg}) -> command_callback(pe4kin_types:message_command(BotName, Msg));
 callback(_, Msg) -> {pe4kin_types:update_type(Msg), []}.
 
 command_callback({Cmd, BinBotName, true, _Command}) -> {command, [Cmd, tagged]}; % /cmd@this_bot
