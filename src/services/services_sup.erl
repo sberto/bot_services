@@ -18,9 +18,9 @@
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
--define(CHILD(M,F,A), #{id => M, start => {M, F, A}, restart => transient, type => worker}).
--define(SERVICE(M,A), ?CHILD(M,start_link,[BotName]++A)).
--define(SERVICE(M), ?SERVICE(M,[])).
+-define(CHILD(M, F, A), #{id => M, start => {M, F, A}, restart => transient, type => worker}).
+-define(SERVICE(M, A), ?CHILD(M, start_link, [BotName] ++ A)).
+-define(SERVICE(M), ?SERVICE(M, [])).
 
 %%%===================================================================
 %%% API functions
@@ -52,7 +52,8 @@ init([BotName]) ->
                  intensity => MaxRestarts,
                  period => MaxSecondsBetweenRestarts},
     Services = [
-                   ?SERVICE(hello_service)
+                   ?SERVICE(hello_service),
+                   ?SERVICE(points_service)
                ],
 
     {ok, {SupFlags, Services}}.
