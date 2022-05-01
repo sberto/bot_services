@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 28. Apr 2022 20:30
 %%%-------------------------------------------------------------------
--module(hello).
+-module(hello_service).
 -author("stefano.bertolotto").
 
 -include("bot_types.hrl").

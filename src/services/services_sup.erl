@@ -51,8 +51,11 @@ init([BotName]) ->
     SupFlags = #{strategy => one_for_one,
                  intensity => MaxRestarts,
                  period => MaxSecondsBetweenRestarts},
+    Services = [
+                   ?SERVICE(hello_service)
+               ],
 
-    {ok, {SupFlags, [?SERVICE(hello)]}}.
+    {ok, {SupFlags, Services}}.
 
 %%%===================================================================
 %%% Internal functions
