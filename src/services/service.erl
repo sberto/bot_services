@@ -48,7 +48,7 @@
 -spec(start_link(module(), bot_name()) ->
     {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link(Mod, BotName) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Mod, BotName], []).
+    gen_server:start_link({local, Mod}, ?MODULE, [Mod, BotName], []).
 
 %%%===================================================================
 %%% gen_server callbacks
