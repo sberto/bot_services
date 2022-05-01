@@ -16,7 +16,7 @@
 %% API
 -export([start_link/1]).
 %% service callbacks
--export([command/5, message/3]).
+-export([command/4, message/3]).
 
 %%%===================================================================
 %%% API
@@ -27,14 +27,14 @@ start_link(Name) ->
 %%%===================================================================
 %%% service callbacks
 %%%===================================================================
--spec command(command(), command_type(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
-command(<<"/start">>, _, #{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}, <<"from">> := From}}, BotName, _State) ->
+-spec command(command(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
+command(<<"/start">>, #{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}, <<"from">> := From}}, BotName, _State) ->
     send_hello(BotName, ChatId, From),
     ok;
-command(Cmd, _, #{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}}}, BotName, _State) ->
+command(Cmd, #{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}}}, BotName, _State) ->
     {ok, _} = pe4kin:send_message(BotName, #{chat_id => ChatId, text => <<Cmd/binary, " is not a valid command">>}),
     ok;
-command(_Cmd, _CmdType, Msg, _Name, _State) -> unhandled(Msg).
+command(_Cmd, Msg, _Name, _State) -> unhandled(Msg).
 
 message(#{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}, <<"from">> := From}}, BotName, _State) ->
     send_hello(BotName, ChatId, From),

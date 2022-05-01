@@ -10,4 +10,3 @@
 
 -type bot_name() :: binary().
 -type command() :: binary().
--type command_type() :: tagged | direct.

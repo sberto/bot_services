@@ -14,7 +14,7 @@
 -include("services.hrl").
 
 -callback message(?CALLBACK_ARGS) -> ?CALLBACK_RES.
--callback command(command(), command_type(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
+-callback command(command(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback other_bot_command(command(), OtherBotName :: bot_name(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback edited_message(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback channel_post(?CALLBACK_ARGS) -> ?CALLBACK_RES.
@@ -26,7 +26,7 @@
 -callback pre_checkout_query(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback undefined(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 
--optional_callbacks([message/3, command/5, other_bot_command/5, edited_message/3, channel_post/3, edited_channel_post/3, inline_query/3, chosen_inline_result/3, callback_query/3, shipping_query/3, pre_checkout_query/3, undefined/3]).
+-optional_callbacks([message/3, command/4, other_bot_command/5, edited_message/3, channel_post/3, edited_channel_post/3, inline_query/3, chosen_inline_result/3, callback_query/3, shipping_query/3, pre_checkout_query/3, undefined/3]).
 
 %% API
 -export([start_link/2]).
@@ -102,13 +102,15 @@ handle_info({?UPDATE, BotName, Msg},
                     mod   = Mod,
                     state = ServiceState
                 }) ->
+    lager:debug("[~p] Msg ~n~p~n", [?MODULE, Msg]),
     {Fun, AdditionalArgs} = callback(BotName, Msg),
     Args = AdditionalArgs ++ [Msg, BotName, ServiceState],
     lager:info("[~p] -> ~p:~p", [?MODULE, Mod, Fun]),
+    lager:debug("[~p] Args ~p~n", [?MODULE, Args]),
     case maybe_apply(Mod, Fun, Args) of
         {ok, NewServiceState} -> {noreply, State#state{state = NewServiceState}};
         ok -> {noreply, State};
-        {error, not_exported} -> unhandled(Args)
+        {error, not_exported} -> unhandled(Args, State)
     end;
 handle_info(Info, State = #state{name = Name}) ->
     io:format("Unhandled ~p req: ~p name ~p", [?FUNCTION_NAME, Info, Name]),
@@ -136,9 +138,9 @@ code_change(_OldVsn, State = #state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-unhandled(Msg) ->
-    lager:info("Unhandled ~p ~p", [?FUNCTION_NAME, Msg]),
-    ok.
+unhandled(Msg, State) ->
+    lager:info("Unhandled ~p", [Msg]),
+    {noreply, State}.
 
 maybe_apply(M, F, A) ->
     IsExported = erlang:function_exported(M, F, length(A)),
@@ -149,9 +151,10 @@ maybe_apply(M, F, A) ->
 
 
 -spec callback(BotName :: bot_name(), Msg :: map()) -> {F :: atom(), AdditionalArgs :: list()}.
-callback(BotName, #{<<"message">> := #{<<"entities">> := _} = Msg}) -> command_callback(pe4kin_types:message_command(BotName, Msg));
-callback(_, Msg) -> {pe4kin_types:update_type(Msg), []}.
+callback(BotName, #{<<"message">> := #{<<"entities">> := _} = Msg}) ->
+    command_callback(pe4kin_types:message_command(BotName, Msg));
+callback(_, Msg) ->
+    {pe4kin_types:update_type(Msg), []}.
 
-command_callback({Cmd, BinBotName, true, _Command}) -> {command, [Cmd, tagged]}; % /cmd@this_bot
-command_callback({Cmd, OtherBotName, false, _Command}) -> {other_bot_command, [Cmd, OtherBotName]}; % /cmd@other_bot
-command_callback({Cmd, _BinBotName, true, _Command}) -> {command, [Cmd, direct]}. % /cmd
+command_callback({Cmd, _BinBotName, true, _Cmd})       -> {command, [Cmd]}; % /cmd
+command_callback({Cmd, OtherBotName, false, _Command}) -> {other_bot_command, [Cmd, OtherBotName]}. % /cmd@other_bot
