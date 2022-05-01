@@ -1,0 +1,2 @@
+Add support for negative numbers
+Rewrite points_service as FSM (new module service_fsm)
