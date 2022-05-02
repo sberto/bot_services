@@ -53,7 +53,7 @@ init([BotName]) ->
                  period => MaxSecondsBetweenRestarts},
     Services = [
                    ?SERVICE(hello_service),
-                   ?SERVICE(points_service)
+                   ?SERVICE(points_service_fsm)
                ],
 
     {ok, {SupFlags, Services}}.

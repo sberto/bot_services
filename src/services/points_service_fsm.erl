@@ -6,79 +6,78 @@
 %%% @end
 %%% Created : 28. Apr 2022 20:30
 %%%-------------------------------------------------------------------
--module(points_service).
+-module(points_service_fsm).
 -author("stefano.bertolotto").
 
 -include("bot_types.hrl").
 -include("behaviour/services.hrl").
--behavior(service).
+-behavior(service_fsm).
 
 %% API
 -export([start_link/1]).
 %% service callbacks
--export([command/4, message/3]).
+-export([start/5, team_names/5, generic/5, points/5]).
 
 %% Definitions
--define(SV_STATE, next).
 -define(SV_POINTS, points).
 -define(SV_TEAMS_TO_UPDATE, teams_to_update).
 -define(STATE_VALUES,
     [
-        ?SV_STATE,
         ?SV_POINTS,
         ?SV_TEAMS_TO_UPDATE
     ]).
-
--define(ST_POINTS, points).
--define(ST_TEAM_NAMES, team_names).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 start_link(Name) ->
-    service:start_link(?MODULE, Name).
+    service_fsm:start_link(?MODULE, Name).
 
 %%%===================================================================
 %%% service callbacks
 %%%===================================================================
--spec command(command(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
-command(<<"/start">>, Msg, BotName, State)       -> start(chat_id(Msg), BotName, State);
-command(<<"/points">>, Msg, BotName, State)      -> points(chat_id(Msg), BotName, State);
-command(<<"/reset_teams">>, Msg, BotName, State) -> reset_teams(chat_id(Msg), BotName, State);
-command(<<"/done">>, Msg, BotName, State)        -> clean(done(chat_id(Msg), BotName, State), State);
-command(<<"/dbg">>, Msg, BotName, State)         -> dbg(chat_id(Msg), BotName, State);
-command(_Cmd, Msg, _Name, State)                 -> unhandled(?FUNCTION_NAME, Msg, State).
 
-message(Msg, _, State = #{?SV_STATE := ?ST_TEAM_NAMES}) -> team_names_msg(Msg, State);
-message(Msg, Name, State = #{?SV_STATE := ?ST_POINTS})  -> points_msg(Msg, Name, State);
-message(Msg, _Name, State) ->
-    unhandled(?FUNCTION_NAME, Msg, State).
+generic(command, [<<"/dbg">>], Msg, BotName, State) -> dbg(chat_id(Msg), BotName, State);
+generic(_, _, _, _, _)                              -> ok.
+
+start(command, [<<"/start">>], Msg, BotName, State) -> welcome(chat_id(Msg), BotName, State);
+start(T, A, M, N, S)                                -> unhandled(?FUNCTION_NAME, T, A, M, N, S).
+
+team_names(command, [<<"/points">>], Msg, BotName, State) -> ask_team_names(chat_id(Msg), BotName, State);
+team_names(command, [<<"/done">>], Msg, BotName, State)   -> clean(done(chat_id(Msg), BotName, State), State);
+team_names(message, [], Msg, _, State)                    -> team_names_msg(Msg, State);
+team_names(T, A, M, N, S)                                 -> unhandled(?FUNCTION_NAME, T, A, M, N, S).
+
+points(command, [<<"/points">>], Msg, BotName, State)      -> points(chat_id(Msg), BotName, State);
+points(command, [<<"/reset_teams">>], Msg, BotName, State) -> reset_teams(chat_id(Msg), BotName, State);
+points(message, [], Msg, Name, State)                      -> points_msg(Msg, Name, State);
+points(T, A, M, N, S)                                      -> unhandled(?FUNCTION_NAME, T, A, M, N, S).
 
 %%%===================================================================
 %%% Commands
 %%%===================================================================
 
 %%% Commands
-start(ChatId, BotName, #{}) ->
+welcome(ChatId, BotName, #{}) ->
     Welcome =
         <<"/points: shows points in a game\n"
           "/reset_teams: start over">>,
     msg(Welcome, ChatId, BotName),
-    ok.
+    {new_state, team_names}.
+
+ask_team_names(ChatId, BotName, State) ->
+    msg(<<"What are your teams' names? Write /done when you are done">>, ChatId, BotName),
+    {ok, State#{accumulator => []}}.
 
 reset_teams(ChatId, BotName, _) ->
     msg(<<"Ok!">>, ChatId, BotName),
-    {ok, #{}}.
+    {team_names, #{}}.
 
 points(ChatId, BotName, #{?SV_POINTS := Points}) ->
     msg(list(maps:to_list(Points)), ChatId, BotName),
-    ok;
-points(ChatId, BotName, State) ->
-    msg(<<"What are your teams' names? Write /done when you are done">>, ChatId, BotName),
-    {ok, State#{?SV_STATE => ?ST_TEAM_NAMES, accumulator => []}};
-points(ChatId, BotName, State) -> start(ChatId, BotName, State).
+    ok.
 
-done(ChatId, BotName, State = #{?SV_STATE := ?ST_TEAM_NAMES, accumulator := Acc}) ->
+done(ChatId, BotName, State = #{accumulator := Acc}) ->
     Teams = lists:reverse(Acc),
     Msg1 = <<"Your teams are: ", (list(Teams))/binary>>,
     Msg2 =
@@ -89,12 +88,11 @@ done(ChatId, BotName, State = #{?SV_STATE := ?ST_TEAM_NAMES, accumulator := Acc}
     msg(Msg2, ChatId, BotName),
     NewState =
         State#{
-            ?SV_STATE => ?ST_POINTS,
             ?SV_POINTS => points_from_list(Teams),
             ?SV_TEAMS_TO_UPDATE => Teams
         },
-    {ok, NewState};
-done(ChatId, BotName, State) -> start(ChatId, BotName, State).
+    {new_state, points, NewState};
+done(ChatId, BotName, State) -> welcome(ChatId, BotName, State).
 
 dbg(ChatId, BotName, State) ->
     msg(jiffy:encode(State), ChatId, BotName),
@@ -104,7 +102,8 @@ dbg(ChatId, BotName, State) ->
 %%% Messages
 %%%===================================================================
 
-team_names_msg(#{<<"message">> := #{<<"text">> := Team}}, State = #{accumulator := Acc}) ->
+team_names_msg(#{<<"message">> := #{<<"text">> := Team}}, State) ->
+    Acc = maps:get(accumulator, State, []),
     NewState = State#{accumulator => [Team | Acc]},
     {ok, NewState}.
 
@@ -131,8 +130,8 @@ points_msg(Msg = #{<<"message">> := #{<<"text">> := Text}},
 %%% Internal functions
 %%%===================================================================
 
-unhandled(Fun, Msg, State) ->
-    lager:warning("Unhandled ~p ~p with state ~p", [Fun, Msg, State]),
+unhandled(Fun, Type, Additional, Msg, Name, State) ->
+    lager:warning("Unhandled ~p~p with state ~p", [Fun, [Type, Additional, Msg, Name], State]),
     ok.
 
 msg(Msg, ChatId, BotName) ->
@@ -157,12 +156,13 @@ points_from_list(Teams) ->
         Teams
     ).
 
-clean(ok, State)      -> do_clean(State);
-clean({ok, State}, _) -> do_clean(State).
+clean(ok, State)                  -> {ok, do_clean(State)};
+clean({ok, State}, _)             -> {ok, do_clean(State)};
+clean({new_state, Fsm, State}, _) -> {new_state, Fsm, do_clean(State)};
+clean({new_state, Fsm}, State)    -> {new_state, Fsm, do_clean(State)}.
 
 do_clean(State) ->
-    CleanState = maps:with(?STATE_VALUES, State),
-    {ok, CleanState}.
+    maps:with(?STATE_VALUES, State).
 
 to_binary(Term) when is_binary(Term) -> Term;
 to_binary(Term)                      -> jiffy:encode(Term).
