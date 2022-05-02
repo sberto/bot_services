@@ -42,11 +42,11 @@ parse_num_words(BinText) ->
 %%% Internal functions
 %%%===================================================================
 
-parse_num_words([], {number, N, Acc} = L) when N =/= [] ->
+parse_num_words([], {number, N, Acc}) when N =/= [] ->
     lists:reverse([N | Acc]);
 parse_num_words([], {name, Name, [LastNum | Acc]} = L) when Name =/= [] ->
     lists:reverse([{LastNum, Name} | Acc]);
-parse_num_words([], {_, _, Acc} = L) ->
+parse_num_words([], {_, _, Acc}) ->
     lists:reverse(Acc);
 parse_num_words([Num | Rest], {number, CurrNum, Acc}) when ?IS_NUM(Num) ->
     parse_num_words(Rest, {number, CurrNum ++ [Num], Acc});

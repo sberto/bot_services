@@ -10,7 +10,7 @@
 -author("stefano.bertolotto").
 
 -include("bot_types.hrl").
--include("services.hrl").
+-include("behaviour/services.hrl").
 -behavior(service).
 
 %% API

@@ -10,3 +10,4 @@
 
 -type bot_name() :: binary().
 -type command() :: binary().
+-type msg() :: map().
