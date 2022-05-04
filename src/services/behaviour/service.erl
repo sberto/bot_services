@@ -13,6 +13,8 @@
 -include("bot_types.hrl").
 -include("services.hrl").
 
+-callback init(BotName :: bot_name()) -> {ok, State :: any()}.
+
 -callback message(?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback command(command(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
 -callback other_bot_command(command(), OtherBotName :: bot_name(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
@@ -29,7 +31,7 @@
 -optional_callbacks([message/3, command/4, other_bot_command/5, edited_message/3, channel_post/3, edited_channel_post/3, inline_query/3, chosen_inline_result/3, callback_query/3, shipping_query/3, pre_checkout_query/3, undefined/3]).
 
 %% API
--export([start_link/2]).
+-export([start_link/2, init/2]).
 
 %% srv callbacks
 -export([handle_info/5]).
@@ -50,12 +52,17 @@ start_link(Mod, BotName) ->
 %%% srv callbacks
 %%%===================================================================
 
+-spec init(Mod :: atom(), BotName :: bot_name()) -> {ok, SrvState :: map(), State :: any()}.
+init(Mod, BotName) ->
+    {ok, State} = Mod:init(BotName),
+    {ok, #{}, State}.
+
 handle_info(BotName, Type, AdditionalArgs, Msg,
             State =
                 #srv_state{
-                    name    = BotName,
-                    mod     = Mod,
-                    state   = ServiceState
+                    name  = BotName,
+                    mod   = Mod,
+                    state = ServiceState
                 }) ->
     Args = AdditionalArgs ++ [Msg, BotName, ServiceState],
     lager:debug("[~p] Args ~p~n", [?MODULE, Args]),

@@ -16,7 +16,7 @@
 %% API
 -export([start_link/1]).
 %% service callbacks
--export([start/5, team_names/5, generic/5, points/5]).
+-export([init/1, starting_state/5, team_names/5, generic/5, points/5]).
 
 %% Definitions
 -define(SV_POINTS, points).
@@ -34,14 +34,23 @@ start_link(Name) ->
     service_fsm:start_link(?MODULE, Name).
 
 %%%===================================================================
-%%% service callbacks
+%%% service_fsm callbacks
 %%%===================================================================
 
+-spec init(BotName :: bot_name()) -> {ok, SrvState :: map(), State :: any()}.
+init(_) ->
+    {ok, starting_state, #{}}.
+
+-spec generic(Type :: atom(), AddArgs :: list(), Msg :: msg(), Name :: bot_name(), State :: map()) ->
+    {new_state, FsmState :: atom()} |
+    {new_state, FsmState :: atom(), State :: map()} |
+    {ok, State :: map()} |
+    ok.
 generic(command, [<<"/dbg">>], Msg, BotName, State) -> dbg(chat_id(Msg), BotName, State);
 generic(_, _, _, _, _)                              -> ok.
 
-start(command, [<<"/start">>], Msg, BotName, State) -> welcome(chat_id(Msg), BotName, State);
-start(T, A, M, N, S)                                -> unhandled(?FUNCTION_NAME, T, A, M, N, S).
+starting_state(command, [<<"/start">>], Msg, BotName, State) -> welcome(chat_id(Msg), BotName, State);
+starting_state(T, A, M, N, S)                                -> unhandled(?FUNCTION_NAME, T, A, M, N, S).
 
 team_names(command, [<<"/points">>], Msg, BotName, State) -> ask_team_names(chat_id(Msg), BotName, State);
 team_names(command, [<<"/done">>], Msg, BotName, State)   -> clean(done(chat_id(Msg), BotName, State), State);

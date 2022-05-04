@@ -16,7 +16,7 @@
 %% API
 -export([start_link/1]).
 %% service callbacks
--export([command/4]).
+-export([command/4, init/1]).
 
 %%%===================================================================
 %%% API
@@ -27,18 +27,19 @@ start_link(Name) ->
 %%%===================================================================
 %%% service callbacks
 %%%===================================================================
+-spec init(BotName :: bot_name()) -> {ok, State :: any()}.
+init(_) ->
+    {ok, #{}}.
+
 -spec command(command(), ?CALLBACK_ARGS) -> ?CALLBACK_RES.
 command(<<"/start">>, #{<<"message">> := #{<<"chat">> := #{<<"id">> := ChatId}, <<"from">> := From}}, BotName, _State) ->
     send_hello(BotName, ChatId, From),
     ok;
-command(_Cmd, Msg, _Name, _State) -> unhandled(Msg).
+command(_Cmd, Msg, _Name, _State) -> ok.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-unhandled(Msg) ->
-    % lager:warning("Unhandled ~p", [Msg]),
-    ok.
 
 send_hello(BotName, ChatId, From) ->
     FirstName = maps:get(<<"first_name">>, From, <<"Anonimous">>),

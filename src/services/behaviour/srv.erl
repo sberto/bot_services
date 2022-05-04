@@ -14,6 +14,7 @@
 -include("services.hrl").
 
 -callback handle_info(BotName :: bot_name(), Type :: atom(), AdditionalArgs :: list(), Msg :: msg(), State :: #srv_state{}) -> {noreply, State :: #srv_state{}}.
+-callback init(Mod :: atom(), BotName :: bot_name()) -> {ok, SrvState :: any(), State :: any()}.
 
 %% API
 -export([start_link/3]).
@@ -48,7 +49,8 @@ init([SrvMod, Mod, BotName]) ->
     pe4kin_receiver:subscribe(BotName, self()),
     pe4kin_receiver:start_http_poll(BotName, #{limit => 100, timeout => 60}),
     lager:notice("[~p] ~p init'd", [?MODULE, Mod]),
-    {ok, #srv_state{name = BotName, mod = Mod, srv_mod = SrvMod}}.
+    {ok, SrvState, State} = SrvMod:init(Mod, BotName),
+    {ok, #srv_state{name = BotName, mod = Mod, srv_mod = SrvMod, srv_state = SrvState, state = State}}.
 
 %% @private
 %% @doc Handling call messages

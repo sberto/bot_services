@@ -14,12 +14,20 @@
 -include("services.hrl").
 
 %% API
--export([start_link/2]).
+-export([start_link/2, init/2]).
 
 %% srv callbacks
 -export([handle_info/5]).
 
 -define(SERVER, ?MODULE).
+
+-callback init(BotName :: bot_name()) -> {ok, FsmState :: atom(), State :: any()} | {ok, State :: atom()}.
+
+-callback generic(Type :: atom(), AddArgs :: list(), Msg :: msg(), Name :: bot_name(), State :: map()) ->
+    {new_state, FsmState :: atom()} |
+    {new_state, FsmState :: atom(), State :: map()} |
+    {ok, State :: map()} |
+    ok.
 
 %%%===================================================================
 %%% API
@@ -35,6 +43,13 @@ start_link(Mod, BotName) ->
 %%% srv callbacks
 %%%===================================================================
 
+-spec init(Mod :: atom(), BotName :: bot_name()) -> {ok, SrvState :: map(), State :: any()}.
+init(Mod, BotName) ->
+    case Mod:init(BotName) of
+        {ok, State} -> {ok, #{state => start}, State};
+        {ok, FsmState, State} -> {ok, #{state => FsmState}, State}
+    end.
+
 handle_info(BotName, Type, AdditionalArgs, Msg,
             State =
                 #srv_state{
@@ -46,7 +61,7 @@ handle_info(BotName, Type, AdditionalArgs, Msg,
     Args = [Type] ++ [AdditionalArgs] ++ [Msg, BotName, ServiceState],
     maybe_apply(Mod, generic, Args),
     lager:debug("[~p] Args ~p~n", [?MODULE, Args]),
-    FsmState = maps:get(state, SrvState, start),
+    FsmState = maps:get(state, SrvState),
     case maybe_apply(Mod, FsmState, Args) of
         {new_state, NewFsmState} when is_atom(NewFsmState) ->
             {noreply, State#srv_state{srv_state = #{state => NewFsmState}}};
