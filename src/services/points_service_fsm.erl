@@ -83,7 +83,7 @@ reset_teams(ChatId, BotName, _) ->
     {team_names, #{}}.
 
 points(ChatId, BotName, #{?SV_POINTS := Points}) ->
-    msg(list(maps:to_list(Points)), ChatId, BotName),
+    msg(<<"Your points are:", (list(maps:to_list(Points)))/binary>>, ChatId, BotName),
     ok.
 
 done(ChatId, BotName, State = #{accumulator := Acc}) ->
@@ -126,6 +126,7 @@ points_msg(Msg = #{<<"message">> := #{<<"text">> := Text}},
                     ?SV_POINTS => update_points(Delta, Points),
                     ?SV_TEAMS_TO_UPDATE => teams_to_update(NewMissingTeams, Points)
                 },
+            maybe_show_results(NewMissingTeams, Msg, BotName, NewState),
             {ok, NewState};
         {error, {not_recognized, Unknown}} ->
             msg(<<"I don't recognize the team ", Unknown/binary>>, chat_id(Msg), BotName),
@@ -241,3 +242,8 @@ team_points_to_map_test() ->
         team_points_to_map([{1, <<"B">>}], [<<"A">>, <<"Baba">>, <<"C">>])).
 
 -endif.
+
+
+maybe_show_results([], Msg, BotName, NewState) ->
+    points(chat_id(Msg), BotName, NewState);
+maybe_show_results(_, _, _, _) -> ok.
